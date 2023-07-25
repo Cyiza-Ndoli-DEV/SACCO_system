@@ -10,15 +10,16 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Random;
+import org.mindrot.jbcrypt.BCrypt;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 
 public class App {
 
-    private static final String DB_URL = "jdbc:mysql://localhost:3306/sacco_system";
+    private static final String DB_URL = "jdbc:mysql://localhost:3306/gui_system";
     private static final String DB_USERNAME = "root";
-    private static final String DB_PASSWORD = "should be your password";
-
+    private static final String DB_PASSWORD = "1234";
+    private static int loanRequestCount = 0;
     public static void main(String[] args) {
         try {
             // Register the MySQL JDBC driver
@@ -42,6 +43,7 @@ public class App {
                 while ((clientRequest = input.readLine()) != null) {
                     // Process the client request and send a response
                     String serverResponse = processRequest(clientRequest);
+                    
                     output.println(serverResponse);
                 }
 
@@ -63,10 +65,13 @@ public class App {
         if (tokens.length < 1) {
             return "Invalid request";
         }
-    
+        if (tokens.length == 2 ) {
+            
+            return handleIntegerBasedRequest( tokens);
+        }
         String command = tokens[0];
-    
-        switch (command) {
+        try {
+          switch (command) {
             case "login":
                 // Perform login action
                 if (tokens.length < 3) {
@@ -77,13 +82,13 @@ public class App {
                 return performLogin(username, password);
             case "deposit":
                 // Perform deposit action
-                if (tokens.length < 4) {
+                if (tokens.length < 3) {
                     return "Invalid deposit request";
                 }
-                int amount = Integer.parseInt(tokens[1]);
-                int receiptNumber = Integer.parseInt(tokens[2]);
-                int memberId = Integer.parseInt(tokens[3]);
-                return performDeposit(amount, receiptNumber,memberId);
+
+                int receiptNumber = Integer.parseInt(tokens[1]);
+                String  dateDeposited = tokens[2];
+                return performDeposit( receiptNumber,dateDeposited);
             case "requestLoan":
                 // Perform loan request action
                 if (tokens.length < 4) {
@@ -99,22 +104,127 @@ public class App {
                     return "Invalid loan request";
                 }
                 int applicationNumber = Integer.parseInt(tokens[1]);
-                
                 return performCheckLoanStatus(applicationNumber);
-            
             default:
                 return "Unknown command";
         }
+        } catch (NumberFormatException e) {
+        return "Unknown command";
+    }
+    }
+    
+
+    /* */
+    private static String handleIntegerBasedRequest(String[] tokens) {
+        // Assuming the first element is the memberNumber and the second element is the phoneNumber
+        if (tokens.length < 2) {
+            return "Invalid integer-based request. Both memberNumber and phoneNumber are required.";
+        }
+    
+        String memberNumber = tokens[0];
+        String phoneNumber = tokens[1];
+    
+        try {
+            // Establish a connection to the database
+            Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+        
+            // Check if there's an existing referenceNumber in the references table
+            String sql = "SELECT * FROM members WHERE member_number = ? AND phone_number = ?";
+            PreparedStatement statement = connection.prepareStatement(sql);
+            statement.setString(1, memberNumber);
+            statement.setString(2, phoneNumber);
+            ResultSet resultSet = statement.executeQuery();
+        
+            if (resultSet.next()) {
+                // The member number and the phone number are in the database
+                String passwordSql = "SELECT password FROM members where member_number = ? AND phone_number = ?";
+                PreparedStatement passwordStatement = connection.prepareStatement(passwordSql);
+                passwordStatement.setString(1, memberNumber);
+                passwordStatement.setString(2, phoneNumber);
+                ResultSet passwordResultSet = passwordStatement.executeQuery();
+        
+                if (passwordResultSet.next()) {
+                    // Password found
+                    String password = passwordResultSet.getString("password");
+                    passwordResultSet.close();
+                    passwordStatement.close();
+                    resultSet.close();
+                    statement.close();
+                    connection.close();
+                    return "Your password is: " + password;
+                } else {
+                    // Password not found
+                    getExistingReferenceNumber(connection, memberNumber, phoneNumber);
+                    passwordResultSet.close();
+                    passwordStatement.close();
+                    resultSet.close();
+                    statement.close();
+                    connection.close();
+                    return "Password not found. Please come back again after new information is uploaded.";
+                }
+            } else {
+                // Invalid member number or phone number
+                resultSet.close();
+                statement.close();
+                connection.close();
+                return "Invalid member number or phone number";
+            }
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return "Database error";
+        }
+        
+    }
+    
+      private static String getExistingReferenceNumber(Connection connection, String memberNumber, String phoneNumber) throws SQLException {
+        // Prepare the SQL statement to check for an existing referenceNumber
+        String sql = "SELECT referenceNumber FROM reference WHERE memberNumber = ? AND phoneNumber = ?";
+        PreparedStatement statement = connection.prepareStatement(sql);
+        statement.setString(1, memberNumber);
+        statement.setString(2, phoneNumber);
+    
+        // Execute the query
+        ResultSet resultSet = statement.executeQuery();
+        if (resultSet.next()) {
+            // Existing referenceNumber found
+            String referenceNumber = resultSet.getString("referenceNumber");
+            resultSet.close();
+            statement.close();
+            return referenceNumber;
+        } else {
+            // No existing referenceNumber found
+            insertIntoReferences(connection, memberNumber, phoneNumber);
+            resultSet.close();
+            statement.close();
+            return null;
+        }
     }
 
+    private static void insertIntoReferences(Connection connection, String memberNumber, String phoneNumber) throws SQLException {
+        // Prepare the SQL statement to insert into the references table
+        String sql = "INSERT INTO reference (memberNumber, phoneNumber,reason) VALUES (?, ?,?)";
+        PreparedStatement statement = connection.prepareStatement(sql);
+        statement.setString(1, memberNumber);
+        statement.setString(2, phoneNumber);
+        statement.setString(3, "Failed to login");
+        
+    
+        // Execute the insert
+        statement.executeUpdate();
+        statement.close();
+    }
+
+     
+   
     private static String performLogin(String username, String password) {
         try {
             // Establish a connection to the database
             
             Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
 
+            
             // Prepare the SQL statement
-            String sql = "SELECT * FROM users WHERE name = ? AND password = ?";
+            String sql = "SELECT * FROM members WHERE username = ? AND password = ?";
             PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, username);
             statement.setString(2, password);
@@ -135,6 +245,7 @@ public class App {
                 resultSet.close();
                 statement.close();
                 connection.close();
+                System.out.println("Wrong credentials");
                 return "Invalid username or password";
             }
         } catch (SQLException e) {
@@ -143,135 +254,31 @@ public class App {
         }
     }
 
-    private static String performDeposit(int amount, int receiptNumber, int memberNumber) {
+   
+    private static String performDeposit( int receiptNumber, String dateDeposited) {
         try {
             // Establish a connection to the database
             Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
     
             // Check if the member has an unpaid loan or balance
-            String sql = "SELECT * FROM loans WHERE memberNumber = ?";
+            String sql = "SELECT * FROM deposit WHERE receiptNumber = ? AND depositDate = ?";
             PreparedStatement statement = connection.prepareStatement(sql);
-            statement.setInt(1, memberNumber);
+            statement.setInt(1, receiptNumber);
+            statement.setString(2, dateDeposited);
     
             // Execute the query
             ResultSet resultSet = statement.executeQuery();
-    
-            if (resultSet.next()) {
-                // Update the balance and amountPaid in the loans table
-                int loanId = resultSet.getInt("loanId");
-                int balance = resultSet.getInt("balance");
-                int amountPaid = resultSet.getInt("amountPaid");
-    
-                int newBalance = balance - amount;
-    
-                if (newBalance < 0) {
-                    // Calculate the remaining amount after clearing the balance
-                    int remainingAmount = Math.abs(newBalance);
-    
-                    // Update the balance to zero and update the amountPaid
-                    sql = "UPDATE loans SET balance = 0, amountPaid = amountPaid + ? WHERE loanId = ?";
-                    statement = connection.prepareStatement(sql);
-                    statement.setInt(1, amountPaid + balance);
-                    statement.setInt(2, loanId);
-    
-                    // Execute the update
-                    int rowsAffected = statement.executeUpdate();
-    
-                    if (rowsAffected > 0) {
-                        // Get the current date and time
-                        LocalDateTime now = LocalDateTime.now();
-                        Timestamp timestamp = Timestamp.valueOf(now);
-    
-                        // Insert the remaining amount and current date into the contributions table
-                        sql = "INSERT INTO contributions (memberNumber, amount, date) VALUES (?, ?, ?)";
-                        statement = connection.prepareStatement(sql);
-                        statement.setInt(1, memberNumber);
-                        statement.setInt(2, remainingAmount);
-                        statement.setTimestamp(3, timestamp);
-    
-                        // Execute the insert
-                        rowsAffected = statement.executeUpdate();
-    
-                        if (rowsAffected > 0) {
-                            // Insert the deposit details into the deposit table
-                            sql = "INSERT INTO deposit (memberNumber, depositAmount, receiptNumber,depositDate) VALUES (?, ?, ?, ?)";
-                            statement = connection.prepareStatement(sql);
-                            statement.setInt(1, memberNumber);
-                            statement.setInt(2, amount);
-                            statement.setInt(3, receiptNumber);
-                            statement.setTimestamp(4, timestamp);
-    
-                            // Execute the insert
-                            rowsAffected = statement.executeUpdate();
-    
-                            if (rowsAffected > 0) {
-                                System.out.println("Balance cleared, remaining amount added to contributions, deposit recorded");
-                                return "Balance cleared, remaining amount added to contributions, deposit recorded";
-                            } else {
-                                return "Failed to insert deposit details";
-                            }
-                        } else {
-                            return "Failed to insert remaining amount";
-                        }
-                    } else {
-                        return "Failed to update balance";
-                    }
-                } else {
-                    // Update the balance and amountPaid in the loans table
-                    sql = "UPDATE loans SET balance = ?, amountPaid = amountPaid + ? WHERE loanId = ?";
-                    statement = connection.prepareStatement(sql);
-                    statement.setInt(1, newBalance);
-                    statement.setInt(2, amount);
-                    statement.setInt(3, loanId);
-    
-                    // Execute the update
-                    int rowsAffected = statement.executeUpdate();
-    
-                    if (rowsAffected > 0) {
-                        // Get the current date and time
-                        LocalDateTime now = LocalDateTime.now();
-                        Timestamp timestamp = Timestamp.valueOf(now);
-    
-                        // Insert the full amount and current date into the contributions table
-                        sql = "INSERT INTO contributions (memberNumber, amount, date) VALUES (?, ?, ?)";
-                        statement = connection.prepareStatement(sql);
-                        statement.setInt(1, memberNumber);
-                        statement.setInt(2, amount);
-                        statement.setTimestamp(3, timestamp);
-    
-                        // Execute the insert
-                        rowsAffected = statement.executeUpdate();
-    
-                        if (rowsAffected > 0) {
-                            
-                            // Insert the deposit details into the deposit table
-                            sql = "INSERT INTO deposit (memberNumber, depositAmount, receiptNumber,depositDate) VALUES (?, ?, ?, ?)";
-                            statement = connection.prepareStatement(sql);
-                            statement.setInt(1, memberNumber);
-                            statement.setInt(2, amount);
-                            statement.setInt(3, receiptNumber);
-                            statement.setTimestamp(4, timestamp);
-    
-                            // Execute the insert
-                            rowsAffected = statement.executeUpdate();
-    
-                            if (rowsAffected > 0) {
-                                System.out.println("Balance updated and amount added to contributions, deposit recorded");
-                                return "Balance updated and amount added to contributions, deposit recorded";
-                            } else {
-                                return "Failed to insert deposit details";
-                            }
-                        } else {
-                            return "Failed to insert amount";
-                        }
-                    } else {
-                        return "Failed to update balance";
-                    }
-                }
-            } else {
-                // No unpaid loan or balance found
-                return "No unpaid loan or balance found for the member";
-            }
+           if (resultSet.next()) {
+              resultSet.close();
+                statement.close();
+                connection.close();
+                return "Your deposit with the receipt number " + receiptNumber + " has been received";
+           }else{
+                resultSet.close();
+                statement.close();
+                connection.close();
+                return "deposit not foun, please check again when new info is uploaded";
+           }
         } catch (SQLException e) {
             e.printStackTrace();
             return "Database error";
@@ -281,47 +288,63 @@ public class App {
     
     
     
-   private static String performLoanRequest(int amount, int paymentPeriod, String memberId) {
-    try {
-        // Establish a connection to the database
-        Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+    private static String performLoanRequest(int loanAmount, int paymentPeriod,String memberNumber) {
+        try {
+            // Establish a connection to the database
+            Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
 
-        // Check the count of existing requests
-        String countQuery = "SELECT COUNT(requestId) AS requestCount FROM loanRequests WHERE status = ?";
-        PreparedStatement countStatement = connection.prepareStatement(countQuery);
-        countStatement.setString(1, "pending"); // Set the parameter value before executing the query
-        ResultSet countResultSet = countStatement.executeQuery();
-        countResultSet.next();
-        int requestCount = countResultSet.getInt("requestCount");
+            // Insert the loan request into the database
+            String sql = "INSERT INTO loanrequests (amount , paymentPeriod,memberNumber) VALUES (?, ?, ?)";
+            PreparedStatement statement = connection.prepareStatement(sql);
+            statement.setInt(1, loanAmount);
+            statement.setInt(2, paymentPeriod);
+            statement.setString(3, memberNumber);
 
-        if (requestCount < 10) {
-            // Generate a unique application number
-            String applicationNumber = generateApplicationNumber();
+            // Execute the insert
+            int rowsAffected = statement.executeUpdate();
 
-            // Add a new request to the database
-            String insertQuery = "INSERT INTO loanRequests (applicationNumber, memberId, amount, paymentPeriod) VALUES (?, ?, ?, ?)";
-            PreparedStatement insertStatement = connection.prepareStatement(insertQuery);
-            insertStatement.setString(1, applicationNumber);
-            insertStatement.setString(2, memberId);
-            insertStatement.setInt(3, amount);
-            insertStatement.setInt(4, paymentPeriod);
+            // Increment the loan request count
+            loanRequestCount++;
 
-            int rowsAffected = insertStatement.executeUpdate();
+            // Check if there are 10 loan requests
+            if (loanRequestCount == 10) {
+                // Generate the recommended list of loan amount distribution
+                // For demonstration purposes, let's assume the recommended amounts are fixed
+                int[] recommendedAmounts = { 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000 };
 
-            if (rowsAffected > 0) {
-                System.out.println("Request added successfully. Application Number: " + applicationNumber);
-                return "Request added successfully. Application Number: " + applicationNumber;
-            } else {
-                return "Failed to add request";
+                // Insert the recommended amounts into the database
+                sql = "INSERT INTO recommended_loans (amount, paymentPeriod,memberNumber) VALUES (?, ?, ?)";
+                statement = connection.prepareStatement(sql);
+                statement.setInt(2, paymentPeriod);
+                statement.setString(3, memberNumber);
+                for (int amount : recommendedAmounts) {
+                    statement.setInt(1, amount);
+                    statement.addBatch();
+                }
+
+                // Execute batch insert
+                statement.executeBatch();
+
+                // Reset the loan request count
+                loanRequestCount = 0;
+
+                PrintWriter output = new PrintWriter(null, false, null);
+                // Notify the client about the recommended amounts
+                output.println("Recommended loan amounts:");
+                for (int amount : recommendedAmounts) {
+                    output.println(amount);
+                }
+
+                return "Recommended loan amounts provided";
             }
-        } else {
-            return "Request limit reached";
+
+            // If there are not 10 loan requests yet, simply acknowledge the loan request
+            return "Loan request processed";
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return "Database error";
         }
-    } catch (SQLException e) {
-        e.printStackTrace();
-        return "Database error";
     }
-}
 
 private static String generateApplicationNumber() {
     // Generate a unique application number based on your requirements
@@ -357,6 +380,8 @@ private static String generateApplicationNumber() {
     }
 
     */
+    
+    
     private static String performCheckLoanStatus(int applicationNumber) {
         try {
             // Establish a connection to the database
