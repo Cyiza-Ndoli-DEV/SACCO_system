@@ -13,6 +13,7 @@ import java.util.Random;
 import org.mindrot.jbcrypt.BCrypt;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 
 public class App {
 
@@ -127,22 +128,22 @@ public class App {
         try {
             // Establish a connection to the database
             Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
-        
+    
             // Check if there's an existing referenceNumber in the references table
             String sql = "SELECT * FROM members WHERE member_number = ? AND phone_number = ?";
             PreparedStatement statement = connection.prepareStatement(sql);
             statement.setString(1, memberNumber);
             statement.setString(2, phoneNumber);
             ResultSet resultSet = statement.executeQuery();
-        
+    
             if (resultSet.next()) {
                 // The member number and the phone number are in the database
-                String passwordSql = "SELECT password FROM members where member_number = ? AND phone_number = ?";
+                String passwordSql = "SELECT password FROM members WHERE member_number = ? AND phone_number = ?";
                 PreparedStatement passwordStatement = connection.prepareStatement(passwordSql);
                 passwordStatement.setString(1, memberNumber);
                 passwordStatement.setString(2, phoneNumber);
                 ResultSet passwordResultSet = passwordStatement.executeQuery();
-        
+    
                 if (passwordResultSet.next()) {
                     // Password found
                     String password = passwordResultSet.getString("password");
@@ -154,67 +155,57 @@ public class App {
                     return "Your password is: " + password;
                 } else {
                     // Password not found
-                    getExistingReferenceNumber(connection, memberNumber, phoneNumber);
                     passwordResultSet.close();
                     passwordStatement.close();
                     resultSet.close();
                     statement.close();
+    
+                    // Generate a random reference number
+                    String referenceNumber = generateRandomReferenceNumber();
+                    insertIntoReferences(connection, memberNumber, phoneNumber, referenceNumber);
+    
                     connection.close();
-                    return "Password not found. Please come back again after new information is uploaded.";
+    
+                    return "Password not found. " + referenceNumber;
                 }
             } else {
                 // Invalid member number or phone number
                 resultSet.close();
                 statement.close();
+                 String referenceNumber = generateRandomReferenceNumber();
+                 insertIntoReferences(connection, memberNumber, phoneNumber, referenceNumber);
                 connection.close();
-                return "Invalid member number or phone number";
+                return "Invalid member number or phone number. Your reference number is " + referenceNumber +" Come back with it for follow up";
             }
         } catch (SQLException e) {
             e.printStackTrace();
             return "Database error";
         }
-        
     }
     
-      private static String getExistingReferenceNumber(Connection connection, String memberNumber, String phoneNumber) throws SQLException {
-        // Prepare the SQL statement to check for an existing referenceNumber
-        String sql = "SELECT referenceNumber FROM reference WHERE memberNumber = ? AND phoneNumber = ?";
-        PreparedStatement statement = connection.prepareStatement(sql);
-        statement.setString(1, memberNumber);
-        statement.setString(2, phoneNumber);
-    
-        // Execute the query
-        ResultSet resultSet = statement.executeQuery();
-        if (resultSet.next()) {
-            // Existing referenceNumber found
-            String referenceNumber = resultSet.getString("referenceNumber");
-            resultSet.close();
-            statement.close();
-            return referenceNumber;
-        } else {
-            // No existing referenceNumber found
-            insertIntoReferences(connection, memberNumber, phoneNumber);
-            resultSet.close();
-            statement.close();
-            return null;
-        }
+    private static String generateRandomReferenceNumber() {
+        // Generate a random 9-digit reference number
+        Random random = new Random();
+        int randomNumber = random.nextInt(900_000_000) + 100_000_000;
+        return String.valueOf(randomNumber);
     }
-
-    private static void insertIntoReferences(Connection connection, String memberNumber, String phoneNumber) throws SQLException {
+    
+    private static void insertIntoReferences(Connection connection, String memberNumber, String phoneNumber, String referenceNumber) throws SQLException {
         // Prepare the SQL statement to insert into the references table
-        String sql = "INSERT INTO reference (memberNumber, phoneNumber,reason) VALUES (?, ?,?)";
+        LocalDateTime currentTime = LocalDateTime.now();
+        String sql = "INSERT INTO reference (memberNumber, phoneNumber, referenceNumber, reason,date) VALUES (?, ?, ?, ?, ?)";
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setString(1, memberNumber);
         statement.setString(2, phoneNumber);
-        statement.setString(3, "Failed to login");
-        
+        statement.setString(3, referenceNumber);
+        statement.setString(4, "Failed to login");
+        statement.setString(5, currentTime.toString());
     
         // Execute the insert
         statement.executeUpdate();
         statement.close();
     }
-
-     
+    
    
     private static String performLogin(String username, String password) {
         try {
@@ -276,75 +267,112 @@ public class App {
            }else{
                 resultSet.close();
                 statement.close();
+                String referenceNumber = generateRandomReferenceNumber();
+                 insertDepositIntoReferences(connection, dateDeposited, referenceNumber);
                 connection.close();
-                return "deposit not foun, please check again when new info is uploaded";
+
+                return "deposit not foun. Reference number:"+ referenceNumber;
            }
         } catch (SQLException e) {
             e.printStackTrace();
             return "Database error";
         }
     }
+      private static void insertDepositIntoReferences(Connection connection, String receipNumber,  String referenceNumber) throws SQLException {
+        // Prepare the SQL statement to insert into the references table
+        LocalDateTime currentTime = LocalDateTime.now();
+        String sql = "INSERT INTO reference (receiptNumber, referenceNumber, reason, date) VALUES (?, ?, ?, ?)";
+        PreparedStatement statement = connection.prepareStatement(sql);
+        statement.setString(1, receipNumber);
+        statement.setString(2, referenceNumber);
+        statement.setString(3, "Failed to find deposit");
+        statement.setString(4, currentTime.toString());
+    
+        // Execute the insert
+        statement.executeUpdate();
+        statement.close();
+    }
     
     
     
     
-    private static String performLoanRequest(int loanAmount, int paymentPeriod,String memberNumber) {
+    private static String performLoanRequest(int loanAmount, int paymentPeriod, String memberNumber) {
         try {
             // Establish a connection to the database
             Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
-
-            // Insert the loan request into the database
-            String sql = "INSERT INTO loanrequests (amount , paymentPeriod,memberNumber) VALUES (?, ?, ?)";
-            PreparedStatement statement = connection.prepareStatement(sql);
-            statement.setInt(1, loanAmount);
-            statement.setInt(2, paymentPeriod);
-            statement.setString(3, memberNumber);
-
-            // Execute the insert
-            int rowsAffected = statement.executeUpdate();
-
-            // Increment the loan request count
-            loanRequestCount++;
-
-            // Check if there are 10 loan requests
-            if (loanRequestCount == 10) {
+            
+            // Check the number of existing loan requests in the database
+            String countSql = "SELECT COUNT(*) AS requestCount FROM loanrequests";
+            PreparedStatement countStatement = connection.prepareStatement(countSql);
+            ResultSet countResultSet = countStatement.executeQuery();
+            int loanRequestCount = 0;
+    
+            if (countResultSet.next()) {
+                loanRequestCount = countResultSet.getInt("requestCount");
+            }
+    
+            if (loanRequestCount >= 10) {
                 // Generate the recommended list of loan amount distribution
                 // For demonstration purposes, let's assume the recommended amounts are fixed
                 int[] recommendedAmounts = { 1000, 2000, 3000, 4000, 5000, 6000, 7000, 8000, 9000, 10000 };
-
+    
                 // Insert the recommended amounts into the database
-                sql = "INSERT INTO recommended_loans (amount, paymentPeriod,memberNumber) VALUES (?, ?, ?)";
-                statement = connection.prepareStatement(sql);
+                String sql = "INSERT INTO recommanded_loans (amount, paymentPeriod, memberNumber) VALUES (?, ?, ?)";
+                PreparedStatement statement = connection.prepareStatement(sql);
                 statement.setInt(2, paymentPeriod);
                 statement.setString(3, memberNumber);
                 for (int amount : recommendedAmounts) {
                     statement.setInt(1, amount);
                     statement.addBatch();
                 }
-
+    
                 // Execute batch insert
                 statement.executeBatch();
-
+                statement.close();
+    
                 // Reset the loan request count
                 loanRequestCount = 0;
-
-                PrintWriter output = new PrintWriter(null, false, null);
+    
                 // Notify the client about the recommended amounts
-                output.println("Recommended loan amounts:");
+                StringBuilder response = new StringBuilder();
+                response.append("Recommended loan amounts:\n");
                 for (int amount : recommendedAmounts) {
-                    output.println(amount);
+                    response.append(amount).append("\n");
                 }
-
-                return "Recommended loan amounts provided";
+    
+                countResultSet.close();
+                countStatement.close();
+                connection.close();
+                return response.toString();
+            } else {
+                // Insert the loan request into the database
+                String applicationNumber = generateApplicationNumber();
+                String sql = "INSERT INTO loanrequests (loanAmount, paymentPeriod, memberNumber,applicationNumber) VALUES (?, ?, ?, ?)";
+                PreparedStatement statement = connection.prepareStatement(sql);
+                statement.setInt(1, loanAmount);
+                statement.setInt(2, paymentPeriod);
+                statement.setString(3, memberNumber);
+                statement.setString(4, applicationNumber);
+                // Execute the insert
+                int rowsAffected = statement.executeUpdate();
+                statement.close();
+    
+                countResultSet.close();
+                countStatement.close();
+                connection.close();
+    
+                // Increment the loan request count
+                loanRequestCount++;
+    
+                // Return the loan application number to the user
+                return "Loan request processed. Loan application number: " + applicationNumber;
             }
-
-            // If there are not 10 loan requests yet, simply acknowledge the loan request
-            return "Loan request processed";
         } catch (SQLException e) {
             e.printStackTrace();
             return "Database error";
         }
     }
+    
 
 private static String generateApplicationNumber() {
     // Generate a unique application number based on your requirements
