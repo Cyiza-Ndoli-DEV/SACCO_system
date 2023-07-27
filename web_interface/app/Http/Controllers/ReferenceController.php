@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Reference;
+use App\Models\RecommendedList;
 
 class ReferenceController extends Controller
 {
@@ -10,8 +11,8 @@ class ReferenceController extends Controller
     {
         // Assuming you have a "Reference" model and you want to fetch data from it
         $references = Reference::all();
-
-        return view('pages.table', compact('references'));
+        $list = RecommendedList::all();
+        return view('pages.table', compact('references','list'));
     }
     
 }
