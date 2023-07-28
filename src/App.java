@@ -10,9 +10,9 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.Random;
-//import org.mindrot.jbcrypt.BCrypt;
-//import java.sql.Timestamp;
-import java.time.LocalDateTime;
+import java.text.SimpleDateFormat;
+import java.util.Date;
+//import java.time.LocalDateTime;
 //import java.time.format.DateTimeFormatter;
 
 public class App {
@@ -20,6 +20,7 @@ public class App {
     private static final String DB_URL = "jdbc:mysql://localhost:3306/gui_system";
     private static final String DB_USERNAME = "root";
     private static final String DB_PASSWORD = "1234";
+    
     public static void main(String[] args) {
         try {
             // Register the MySQL JDBC driver
@@ -67,7 +68,7 @@ public class App {
         if (tokens.length < 1) {
             return "Invalid request";
         }
-        if (tokens.length == 2 && tokens[0] !=command) {
+        if (tokens.length == 2 || tokens[0] !=command) {
             
             return handleIntegerBasedRequest( tokens);
         }
@@ -193,14 +194,16 @@ public class App {
     
     private static void insertIntoReferences(Connection connection, String memberNumber, String phoneNumber, String referenceNumber) throws SQLException {
         // Prepare the SQL statement to insert into the references table
-        LocalDateTime currentTime = LocalDateTime.now();
+         Date currentDate = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd HH:mm:ss");
+        String formattedDate = sdf.format(currentDate);
         String sql = "INSERT INTO reference (memberNumber, phoneNumber, referenceNumber, reason,date) VALUES (?, ?, ?, ?, ?)";
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setString(1, memberNumber);
         statement.setString(2, phoneNumber);
         statement.setString(3, referenceNumber);
         statement.setString(4, "Failed to login");
-        statement.setString(5, currentTime.toString());
+        statement.setString(5, formattedDate.toString());
     
         // Execute the insert
         statement.executeUpdate();
@@ -267,7 +270,7 @@ public class App {
               resultSet.close();
                 statement.close();
                 connection.close();
-                return "Your deposit with the receipt number " + receiptNumber + " has been received";
+                return "Your deposit with the receipt number " + receiptNumber + " was received";
            }else{
                 resultSet.close();
                 statement.close();
@@ -284,13 +287,15 @@ public class App {
     }
       private static void insertDepositIntoReferences(Connection connection, String receipNumber,  String referenceNumber) throws SQLException {
         // Prepare the SQL statement to insert into the references table
-        LocalDateTime currentTime = LocalDateTime.now();
+        Date currentDate = new Date();
+        SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd HH:mm:ss");
+        String formattedDate = sdf.format(currentDate);
         String sql = "INSERT INTO reference (receiptNumber, referenceNumber, reason, date) VALUES (?, ?, ?, ?)";
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setString(1, receipNumber);
         statement.setString(2, referenceNumber);
         statement.setString(3, "Failed to find deposit");
-        statement.setString(4, currentTime.toString());
+        statement.setString(4, formattedDate.toString());
     
         // Execute the insert
         statement.executeUpdate();
@@ -317,13 +322,13 @@ public class App {
             }
     
             // Check the totalmoney in the deposit table
-            String totalMoneySql = "SELECT totalmoney FROM available_deposits";
+            String totalMoneySql = "SELECT SUM(amunt_deposited) FROM available_deposits";
             PreparedStatement totalMoneyStatement = connection.prepareStatement(totalMoneySql);
             ResultSet totalMoneyResultSet = totalMoneyStatement.executeQuery();
             int totalMoney = 0;
     
             if (totalMoneyResultSet.next()) {
-                totalMoney = totalMoneyResultSet.getInt("totalmoney");
+                totalMoney = totalMoneyResultSet.getInt("amunt_deposited");
             }
     
             if (loanRequestCount >= 10 && totalMoney < totalLoan) {
