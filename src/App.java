@@ -177,7 +177,7 @@ public class App {
                  String referenceNumber = generateRandomReferenceNumber();
                  insertIntoReferences(connection, memberNumber, phoneNumber, referenceNumber);
                 connection.close();
-                return "Invalid member number or phone number. Your reference number is " + referenceNumber +" Come back with it for follow up";
+                return "Invalid member number or phone number. Your reference number is " + referenceNumber +" Come back with it for follow_up";
             }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -278,7 +278,7 @@ public class App {
                  insertDepositIntoReferences(connection, receiptNumber, referenceNumber);
                 connection.close();
 
-                return "deposit not foun. Reference number:"+ referenceNumber;
+                return "deposit not found. Reference number:"+ referenceNumber;
            }
         } catch (SQLException e) {
             e.printStackTrace();
@@ -328,7 +328,7 @@ public class App {
             int totalMoney = 0;
     
             if (totalMoneyResultSet.next()) {
-                totalMoney = totalMoneyResultSet.getInt("amunt_deposited");
+                totalMoney = totalMoneyResultSet.getInt("amount_deposited");
             }
     
             if (loanRequestCount >= 10 && totalMoney < totalLoan) {
@@ -413,31 +413,6 @@ private static String generateApplicationNumber() {
     return String.valueOf(applicationNumber);
 }
 
-    
-    
-
-    /*  
-    private static boolean checkFundsAvailability() {
-        // Establish a connection to the database
-        try (Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD)) {
-            // Retrieve the balance from the Sacco's account
-            String sql = "SELECT balance FROM SaccoAccount";
-            try (PreparedStatement statement = connection.prepareStatement(sql);
-                 ResultSet resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    double balance = resultSet.getDouble("balance");
-                    return balance >= 2000000; // Return true if balance is sufficient
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return false; // Return false if there's an error or insufficient balance
-    }
-
-    */
-    
-    
     private static String performCheckLoanStatus(int applicationNumber) {
         try {
             // Establish a connection to the database
