@@ -14,8 +14,12 @@ use Illuminate\Support\Facades\Auth;
 |
 */
 use App\Http\Controllers\ReferenceController;
+use App\Http\Controllers\ResponseController;
 
 Route::get('/table', [ReferenceController::class, 'displayData'])->name('page.index');
+Route::post('/save-response', [ResponseController::class, 'saveResponse'])->name('save-response');
+
+
 
 
 
