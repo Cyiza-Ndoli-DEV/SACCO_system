@@ -9,7 +9,7 @@ public class UpriseClient {
     public static void main(String[] args) {
         try {
             // Connect to the server
-            Socket socket = new Socket("localhost", 3006);
+            Socket socket = new Socket("localhost", 3333);
 
             // Get the input and output streams for communication
             BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
@@ -19,7 +19,7 @@ public class UpriseClient {
             BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
            System.out.println("Welcome to Uprise Sacco Command Line Interface");
             // Prompt for command, username, and password
-            System.out.println("Enter command, username, password, and additional details separated by spaces:");
+            System.out.println("Enter login, username and password separated by spaces:");
             String[] inputTokens = consoleReader.readLine().split(" ");
             
             if (inputTokens.length < 3) {
@@ -80,12 +80,13 @@ public class UpriseClient {
         boolean continueExecution = true;
     
         while (continueExecution) {
-            System.out.println("1. deposit (command receiptNumber  dateDeposited(year-month-day))");
+            System.out.println("1. deposit (command amount  receiptNumber  dateDeposited(year-month-day))");
             System.out.println("2. checkLoanStatus (command applicationNumber)");
             System.out.println("3. checkStatement (command dateFrom(year-month-day) dateTo(year-month-day)  ");
             System.out.println("4. requestLoan(command amount paymentPeriod memberMumber )");
+            System.out.println("5. LoanRepayment (command member_number amountPaid )");
     
-            System.out.println("Enter a command followed by its details:");
+            System.out.println("Now enter any of the above command followed by the corresponding details:");
             BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
             String[] inputTokens = consoleReader.readLine().split(" ");
             String commandName = inputTokens[0];
@@ -103,10 +104,15 @@ public class UpriseClient {
                 case "checkLoanStatus":
                     checkLoanStatus(input, output, inputTokens);
                     break;
+
+                case "loanRepayment":
+                    LoanRepayment(input, output, inputTokens);
+                    break;    
                 case "exit":
                     System.out.println("Exiting Uprise Sacco client. Goodbye!");
                     continueExecution = false;
                     break;
+                
                 default:
                     System.out.println("Invalid command. Please try again.");
                     break;
@@ -166,4 +172,16 @@ public class UpriseClient {
         String serverResponse = input.readLine();
         System.out.println("Server: " + serverResponse);
     }
+    
+    private static void LoanRepayment(BufferedReader input, PrintWriter output, String[] LoanRepaymentTokens) throws IOException{
+        // Get the additional details from commandTokens and perform LoanRepayment action
+        // Now send the LoanRepayment request to the server
+        output.println(String.join(" ", LoanRepaymentTokens));
+
+
+        // get the response from the server
+          String serverResponse = input.readLine();
+          System.out.println( "Server: " + serverResponse);
+        
+}
 }
