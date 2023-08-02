@@ -12,14 +12,48 @@ import java.sql.SQLException;
 import java.util.Random;
 import java.text.SimpleDateFormat;
 import java.util.Date;
-//import java.time.LocalDateTime;
-//import java.time.format.DateTimeFormatter;
+
+import java.util.ArrayList;
+import java.util.List;
+
+// LoanRequest class to store details of each loan request
+class LoanRequest {
+    private int loanAmount;
+    private int paymentPeriod;
+    private String memberNumber;
+    private String applicationNumber;
+
+    public LoanRequest(int loanAmount, int paymentPeriod, String memberNumber, String applicationNumber) {
+        this.loanAmount = loanAmount;
+        this.paymentPeriod = paymentPeriod;
+        this.memberNumber = memberNumber;
+        this.applicationNumber = applicationNumber;
+    }
+
+    public int getLoanAmount() {
+        return loanAmount;
+    }
+
+    public int getPaymentPeriod() {
+        return paymentPeriod;
+    }
+
+    public String getMemberNumber() {
+        return memberNumber;
+    }
+
+    public String getApplicationNumber() {
+        return applicationNumber;
+    }
+}
 
 public class App {
 
     private static final String DB_URL = "jdbc:mysql://localhost:3306/gui_system";
     private static final String DB_USERNAME = "root";
     private static final String DB_PASSWORD = "1234";
+    private static String memberNumber;
+    private static String phoneNumber;
     
     public static void main(String[] args) {
         try {
@@ -229,6 +263,9 @@ public class App {
 
             if (resultSet.next()) {
                 // Login successful
+                memberNumber = resultSet.getString("member_number");
+                phoneNumber = resultSet.getString("phone_number");
+                
                 resultSet.close();
                 statement.close();
                 connection.close();
@@ -290,12 +327,14 @@ public class App {
         Date currentDate = new Date();
         SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd HH:mm:ss");
         String formattedDate = sdf.format(currentDate);
-        String sql = "INSERT INTO reference (receiptNumber, referenceNumber, reason, date) VALUES (?, ?, ?, ?)";
+        String sql = "INSERT INTO reference (receiptNumber, referenceNumber, reason, date, memberNumber, phoneNumber) VALUES (?, ?, ?, ?, ?, ?)";
         PreparedStatement statement = connection.prepareStatement(sql);
         statement.setString(1, receipNumber);
         statement.setString(2, referenceNumber);
         statement.setString(3, "Failed to find deposit");
         statement.setString(4, formattedDate.toString());
+        statement.setString(5, memberNumber);
+        statement.setString(6, phoneNumber);
     
         // Execute the insert
         statement.executeUpdate();
@@ -309,57 +348,62 @@ public class App {
         try {
             // Establish a connection to the database
             Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
-    
+            ArrayList<Integer> applicationNumbers = new ArrayList<>();
             // Check the number of existing loan requests in the database
-            String countSql = "SELECT COUNT(*) AS requestCount, SUM(loanAmount) as total FROM loanrequests";
+            String countSql = "SELECT applicationNumber, COUNT(*) AS requestCount, SUM(loanAmount) AS totalLoan FROM loanrequests WHERE status = ? GROUP BY applicationNumber";
+
             PreparedStatement countStatement = connection.prepareStatement(countSql);
+            countStatement.setString(1, "pending");
             ResultSet countResultSet = countStatement.executeQuery();
-            int loanRequestCount = 0;
+            
             int totalLoan = 0;
-            if (countResultSet.next()) {
-                loanRequestCount = countResultSet.getInt("requestCount");
-                totalLoan = countResultSet.getInt("total");
+           
+            int loanRequestCount = 1;
+            while (countResultSet.next()) {
+                loanRequestCount++;
+                totalLoan = countResultSet.getInt("totalLoan");
+                int applicationNo = countResultSet.getInt("applicationNumber");
+                applicationNumbers.add(applicationNo);
             }
-    
+            
+            
             // Check the totalmoney in the deposit table
-            String totalMoneySql = "SELECT SUM(amunt_deposited) FROM available_deposits";
+            String totalMoneySql = "SELECT SUM(amount_deposited) AS totalmoney FROM available_deposits";
             PreparedStatement totalMoneyStatement = connection.prepareStatement(totalMoneySql);
             ResultSet totalMoneyResultSet = totalMoneyStatement.executeQuery();
             int totalMoney = 0;
     
-            if (totalMoneyResultSet.next()) {
-                totalMoney = totalMoneyResultSet.getInt("amunt_deposited");
+            while (totalMoneyResultSet.next()) {
+                totalMoney = totalMoneyResultSet.getInt("totalmoney");
             }
-    
-            if (loanRequestCount >= 10 && totalMoney < totalLoan) {
+            System.out.println(loanRequestCount);
+            System.out.println(totalLoan);
+            System.out.println(totalMoney);
+            loanRequestCount = applicationNumbers.size();
+            if (loanRequestCount == 10 ) {
                 // Distribute the totalmoney equally among the applicants
-                int numberOfApplicants = 10; // Assuming 10 applicants for demonstration purposes
-                int distributedAmount = totalMoney / numberOfApplicants;
-    
-                // Update the loan requests with the distributed amounts
-                String updateSql = "UPDATE loanrequests SET loanAmount = ?";
-                PreparedStatement updateStatement = connection.prepareStatement(updateSql);
-                updateStatement.setInt(1, distributedAmount);
-                updateStatement.executeUpdate();
-                updateStatement.close();
-    
-                // Insert the distributed amounts into the recommended_loans table
-                String insertSql = "INSERT INTO recommended_loans (amount, paymentPeriod, memberNumber) VALUES (?, ?, ?)";
-                PreparedStatement insertStatement = connection.prepareStatement(insertSql);
-                insertStatement.setInt(1, distributedAmount);
-                insertStatement.setInt(2, paymentPeriod);
-                insertStatement.setString(3, memberNumber);
-                insertStatement.executeUpdate();
-                insertStatement.close();
-    
+                // Assuming 10 applicants for demonstration purposes
+                if (totalMoney<=totalLoan){
+                    int distributedAmount = totalMoney / loanRequestCount;
+
+                // Loop through the application numbers and insert the distributed amounts into the recommended_loans table
+                for (int applicationNo : applicationNumbers) {
+                    String insertSql = "INSERT INTO recommanded_loans (amount, paymentPeriod, memberNumber, applicationNumber) VALUES (?, ?, ?, ?)";
+                    PreparedStatement insertStatement = connection.prepareStatement(insertSql);
+                    insertStatement.setInt(1, distributedAmount);
+                    insertStatement.setInt(2, paymentPeriod);
+                    insertStatement.setString(3, memberNumber);
+                    insertStatement.setInt(4, applicationNo);
+                    insertStatement.executeUpdate();
+                    insertStatement.close();
+                }
+        
                 // Reset the loan request count
-                loanRequestCount = 0;
-    
+                loanRequestCount = 0;  
                 // Notify the client about the distributed amounts
                 StringBuilder response = new StringBuilder();
-                response.append("Distributed loan amounts:\n");
-                for (int i = 0; i < numberOfApplicants; i++) {
-                    response.append(distributedAmount).append("\n");
+                for (int i = 0; i < loanRequestCount; i++) {
+                    response.append(distributedAmount).append(" Distributed loan amounts:\n");
                 }
     
                 countResultSet.close();
@@ -367,7 +411,52 @@ public class App {
                 totalMoneyResultSet.close();
                 totalMoneyStatement.close();
                 connection.close();
+    
                 return response.toString();
+
+                }else{
+
+                     // Select loan requests and insert them into recommended_loans table
+                String selectSql = "SELECT loanAmount, paymentPeriod, memberNumber, applicationNumber FROM loanrequests";
+                PreparedStatement selectStatement = connection.prepareStatement(selectSql);
+                ResultSet loanResultSet = selectStatement.executeQuery();
+                
+                while (loanResultSet.next()) {
+                       String updateSql = "UPDATE loanrequests SET status = ?";
+                PreparedStatement updateStatement = connection.prepareStatement(updateSql);
+                updateStatement.setString(1, "proccessing");
+                updateStatement.executeUpdate();
+                updateStatement.close();
+                    int recommendedAmount = loanResultSet.getInt("loanAmount");
+                    int recomPaymentPeriod = loanResultSet.getInt("paymentPeriod");
+                    String recomMemberNum = loanResultSet.getString("memberNumber");
+                    int appNumber = loanResultSet.getInt("applicationNumber");
+                    
+                    // Loop through the application numbers and insert the distributed amounts into the recommended_loans table
+                
+                    String insertSql = "INSERT INTO recommanded_loans (amount, paymentPeriod, memberNumber, applicationNumber) VALUES (?, ?, ?, ?)";
+                    PreparedStatement insertStatement = connection.prepareStatement(insertSql);
+                    insertStatement.setInt(1, recommendedAmount);
+                    insertStatement.setInt(2, recomPaymentPeriod);
+                    insertStatement.setString(3, recomMemberNum);
+                    insertStatement.setInt(4, appNumber);
+                    insertStatement.executeUpdate();
+                    insertStatement.close();
+               
+                }
+                
+                loanResultSet.close();
+                selectStatement.close();
+                countResultSet.close();
+                countStatement.close();
+                totalMoneyResultSet.close();
+                totalMoneyStatement.close();
+                connection.close();
+    
+                return "Your loan is being processed";
+
+                }
+               
             } else {
                 // Insert the loan request into the database
                 String applicationNumber = generateApplicationNumber();
@@ -389,6 +478,7 @@ public class App {
     
                 // Increment the loan request count
                 loanRequestCount++;
+                totalLoan = totalLoan + loanAmount;
     
                 // Return the loan application number to the user
                 return "Loan request processed. Loan application number: " + applicationNumber;
@@ -398,6 +488,7 @@ public class App {
             return "Database error";
         }
     }
+    
     
     
     
@@ -428,14 +519,23 @@ private static String generateApplicationNumber() {
                     double balance = resultSet.getDouble("balance");
                     return balance >= 2000000; // Return true if balance is sufficient
                 }
+
+                if (resultSet.next()) {
+                    
+                } else if (resultSet.next()) {
+                    
+                }else{
+
+                }
             }
         } catch (SQLException e) {
             e.printStackTrace();
         }
         return false; // Return false if there's an error or insufficient balance
     }
-
     */
+
+    
     
     
     private static String performCheckLoanStatus(int applicationNumber) {
