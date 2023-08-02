@@ -3,7 +3,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
-
+// class client
 public class UpriseClient {
 
     public static void main(String[] args) {
