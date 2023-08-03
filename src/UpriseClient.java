@@ -84,7 +84,7 @@ public class UpriseClient {
             System.out.println("2. checkLoanStatus (command applicationNumber)");
             System.out.println("3. checkStatement (command dateFrom(year-month-day) dateTo(year-month-day)  ");
             System.out.println("4. requestLoan(command amount paymentPeriod memberMumber )");
-            System.out.println("4. exit(enter command and press the Enter key to exit and log_out)");
+            System.out.println("5. exit(enter command and press the Enter key to logout and close exit the connection)");
     
             System.out.println("Enter a command followed by its details:");
             BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
