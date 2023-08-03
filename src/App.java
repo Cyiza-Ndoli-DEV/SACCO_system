@@ -14,7 +14,6 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 
 import java.util.ArrayList;
-//import java.util.List;
 
 // LoanRequest class to store details of each loan request
 class LoanRequest {
@@ -55,7 +54,7 @@ public class App {
     private static String memberNumber;
     private static String phoneNumber;
     
-    public static void main(String[] args) {
+    public static void main(String[] args) throws SQLException {
         try {
             // Register the MySQL JDBC driver
             Class.forName("com.mysql.cj.jdbc.Driver");
@@ -77,9 +76,12 @@ public class App {
                 String clientRequest;
                 while ((clientRequest = input.readLine()) != null) {
                     // Process the client request and send a response
-                    String serverResponse = processRequest(clientRequest);
+                        
+                        String serverResponse = processRequest(clientRequest);
                     
                     output.println(serverResponse);
+                    
+                    
                 }
 
                 // Close the streams and the client socket
@@ -95,17 +97,22 @@ public class App {
         }
     }
 
-    private static String processRequest(String request) {
+    private static String processRequest(String request) throws IOException, SQLException {
         // Extract command and parameters from the request
         String[] tokens = request.split(" ");
         String command = tokens[0];
-        if (tokens.length < 1) {
-            return "Invalid request";
+        if (tokens.length == 1) {
+            return handleLoanAcceptance(tokens);
         }
-        if (tokens.length == 2 || tokens[0] !=command) {
+        if (tokens.length < 1 ) {
+            return "Invalid command";
             
-            return handleIntegerBasedRequest( tokens);
         }
+        if (tokens.length == 2 && !(tokens[0] instanceof String)) {
+            return handleIntegerBasedRequest(tokens);
+        }
+        
+        
         
         try {
           switch (command) {
@@ -388,7 +395,7 @@ public class App {
 
                 // Loop through the application numbers and insert the distributed amounts into the recommended_loans table
                 for (int applicationNo : applicationNumbers) {
-                    String insertSql = "INSERT INTO recommanded_loans (amount, paymentPeriod, memberNumber, applicationNumber) VALUES (?, ?, ?, ?)";
+                    String insertSql = "INSERT INTO recommended_loans (amount, paymentPeriod, memberNumber, applicationNumber) VALUES (?, ?, ?, ?)";
                     PreparedStatement insertStatement = connection.prepareStatement(insertSql);
                     insertStatement.setInt(1, distributedAmount);
                     insertStatement.setInt(2, paymentPeriod);
@@ -434,7 +441,7 @@ public class App {
                     
                     // Loop through the application numbers and insert the distributed amounts into the recommended_loans table
                 
-                    String insertSql = "INSERT INTO recommanded_loans (amount, paymentPeriod, memberNumber, applicationNumber) VALUES (?, ?, ?, ?)";
+                    String insertSql = "INSERT INTO recommended_loans (amount, paymentPeriod, memberNumber, applicationNumber) VALUES (?, ?, ?, ?)";
                     PreparedStatement insertStatement = connection.prepareStatement(insertSql);
                     insertStatement.setInt(1, recommendedAmount);
                     insertStatement.setInt(2, recomPaymentPeriod);
@@ -505,39 +512,6 @@ private static String generateApplicationNumber() {
 }
 
     
-    
-
-    /*  
-    private static boolean checkFundsAvailability() {
-        // Establish a connection to the database
-        try (Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD)) {
-            // Retrieve the balance from the Sacco's account
-            String sql = "SELECT balance FROM SaccoAccount";
-            try (PreparedStatement statement = connection.prepareStatement(sql);
-                 ResultSet resultSet = statement.executeQuery()) {
-                if (resultSet.next()) {
-                    double balance = resultSet.getDouble("balance");
-                    return balance >= 2000000; // Return true if balance is sufficient
-                }
-
-                if (resultSet.next()) {
-                    
-                } else if (resultSet.next()) {
-                    
-                }else{
-
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return false; // Return false if there's an error or insufficient balance
-    }
-    */
-
-    
-    
-    
     private static String performCheckLoanStatus(int applicationNumber) {
         try {
             // Establish a connection to the database
@@ -554,11 +528,28 @@ private static String generateApplicationNumber() {
             if (resultSet.next()) {
                 // Loan request found
                 String status = resultSet.getString("status");
-                resultSet.close();
+                if (status == "pending") {
+                    resultSet.close();
                 statement.close();
                 connection.close();
                 
-                return "Your loan application is : " + status;
+                return  status;
+                    
+                }else if (status == "proccessing"){
+                      resultSet.close();
+                statement.close();
+                connection.close();
+                
+                return status;
+
+                }else{
+
+                    resultSet.close();
+                  statement.close();
+                   connection.close();
+                    return   status;
+                }
+                
             } else {
                 // Loan request not found
                 resultSet.close();
@@ -573,5 +564,109 @@ private static String generateApplicationNumber() {
     }
     
     
+    private static String handleLoanAcceptance(String [] request) throws IOException, SQLException {
+         
+    
+        String command = request[0];
+         try {
+          switch (command) {
+            case "accept":
+                // Perform login action
+                return acceptLoan();
+            case "reject":
+                 return rejectLoan();
+                 default:
+                 return "Enter accept or reject";
+        }
+        } catch (NumberFormatException e) {
+        return "Unknown command";
+    }
+        
+    }
+
+      private static String acceptLoan() throws SQLException {
+         Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+        // Prepare the SQL statement to insert into the references table
+        try {
+             String selectSql  = "SELECT * FROM loanrequests WHERE memberNumber = ? ";
+        PreparedStatement selectStatement = connection.prepareStatement(selectSql);
+        selectStatement.setString(1, memberNumber);
+        ResultSet resultSet = selectStatement.executeQuery();
+        if (resultSet.next()) {
+            int recommendedAmount = resultSet.getInt("loanAmount");
+            int recomPaymentPeriod = resultSet.getInt("paymentPeriod");
+            String recomMemberNum = resultSet.getString("memberNumber");
+            int appNumber = resultSet.getInt("applicationNumber");
+
+            // Get the current date
+            Date currentDate = new Date();
+            SimpleDateFormat sdf = new SimpleDateFormat("yy-MM-dd HH:mm:ss");
+            String formattedDate = sdf.format(currentDate);
+
+            // Calculate the end date using the payment period as the number of months
+            java.time.LocalDate startDate = java.time.LocalDate.now();
+            java.time.LocalDate endDate = startDate.plusMonths(recomPaymentPeriod);
+
+            // Convert LocalDate to String in the desired format
+            String endDateString = endDate.toString();
+
+            String sql = "INSERT INTO loandetails (applicationNumber, amount, startDate, endDate, memberNumber) VALUES (?, ?, ?, ?, ?)";
+            PreparedStatement statement = connection.prepareStatement(sql);
+            statement.setInt(1, appNumber);
+            statement.setInt(2, recommendedAmount);
+            statement.setString(3, formattedDate); // Assuming "startDate" is the current date
+            statement.setString(4, endDateString);
+            statement.setString(5, recomMemberNum);
+
+            statement.executeUpdate();
+            statement.close();
+             String insertSql = "INSERT INTO loanpayment (applicationNumber, amount, startDate ) VALUES (?, ?, ?)";
+            PreparedStatement insertStatement = connection.prepareStatement(insertSql);
+            insertStatement.setInt(1, appNumber);
+            insertStatement.setInt(2, recommendedAmount);
+            insertStatement.setString(3, formattedDate); // Assuming "startDate" is the current date
+            
+
+            insertStatement.executeUpdate();
+            insertStatement.close();
+
+           String updateSql = "UPDATE loanrequests SET status = ? WHERE memberNumber = ?";
+                PreparedStatement updateStatement = connection.prepareStatement(updateSql);
+                updateStatement.setString(1, "accepted");
+                updateStatement.setString(1, recomMemberNum);
+                updateStatement.executeUpdate();
+                updateStatement.close();
+                return "Your loan payment period starts at :" + formattedDate;
+        }else{
+            return "Loan not found";
+        }
+            
+        } catch (Exception e) {
+            // TODO: handle exception
+            return "Database error";
+        }
+       
+        
+    }
+
+
+    private static String rejectLoan() throws SQLException {
+         Connection connection = DriverManager.getConnection(DB_URL, DB_USERNAME, DB_PASSWORD);
+        // Prepare the SQL statement to insert into the references table
+        try {
+           String updateSql = "UPDATE loanrequests SET status = ?";
+                PreparedStatement updateStatement = connection.prepareStatement(updateSql);
+                updateStatement.setString(1, "rejected");
+                updateStatement.executeUpdate();
+                updateStatement.close();
+                return "You've rejected the loan. Thank you for your collaboration :" ;
+            
+        } catch (Exception e) {
+            // TODO: handle exception
+            return "Database error";
+        }
+       
+        
+    }
     
 }

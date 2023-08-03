@@ -160,10 +160,29 @@ public class UpriseClient {
     private static void checkLoanStatus(BufferedReader input, PrintWriter output, String[] loanStatusTokens) throws IOException {
         // Extract additional details from commandTokens and perform checkLoanStatus action
         // Send checkLoanStatus request to the server
+      
         output.println(String.join(" ", loanStatusTokens));
-
+    
         // Get server response
         String serverResponse = input.readLine();
+        System.out.println("Server: " + serverResponse);
+    
+        // Check if the server response is "approved" and ask the user to enter a command accordingly
+        if (serverResponse.equals("approved")) {
+            acceptOrRejectLoan(input, output);
+        } else {
+            System.out.println("Your loan request is :" + serverResponse);
+            // Handle other scenarios based on the server response if needed.
+        }
+    }
+
+    private static void acceptOrRejectLoan( BufferedReader input, PrintWriter output) throws IOException{
+         BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
+        System.out.println("Your loan request has been approved. Please enter the next command:");
+        String command = consoleReader.readLine();
+        output.println(command);
+        
+       String serverResponse = input.readLine();
         System.out.println("Server: " + serverResponse);
     }
 }
