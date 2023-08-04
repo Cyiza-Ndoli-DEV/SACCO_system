@@ -80,7 +80,7 @@ public class UpriseClient {
         boolean continueExecution = true;
     
         while (continueExecution) {
-            System.out.println("1. deposit (command receiptNumber  dateDeposited(year-month-day))");
+            System.out.println("1. deposit (command amount_deposited receiptNumber  dateDeposited(year-month-day))");
             System.out.println("2. checkLoanStatus (command applicationNumber)");
             System.out.println("3. checkStatement (command dateFrom(year-month-day) dateTo(year-month-day)  ");
             System.out.println("4. requestLoan(command amount paymentPeriod memberMumber )");
