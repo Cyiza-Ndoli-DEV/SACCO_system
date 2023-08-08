@@ -19,27 +19,42 @@
                                     <th>Reason</th>
                                     <th>Time</th>
                                     <th>Reference Number</th>
+                                    <th>Status</th>
                                     <th>Response</th>
                                 </thead>
                                 <tbody>
-                                    @foreach($references as $reference)
-                                    <tr>
-                                        <td>{{ $reference->id }}</td>
-                                        <td>{{ $reference->memberNumber }}</td>
-                                        <td>{{ $reference->phoneNumber }}</td>
-                                        <td>{{ $reference->reason }}</td>
-                                        <td>{{ $reference->date }}</td>
-                                        <td>
-                                        {{ $reference->referenceNumber }}
-                                        </td>
-                                        <td>
-                                        <button type="button" class="btn btn-primary res-btn" id="resbtn" data-toggle="modal" data-target="#respondModal" data-reference-id="{{ $reference->id }}">Respond</button>
+    @foreach($references as $reference)
+        @php
+            // Calculate the time difference in hours between the current time and the reference's date
+            $currentTime = now();
+            $referenceDate = \Carbon\Carbon::parse($reference->date);
+            $hoursDifference = $currentTime->diffInHours($referenceDate);
+            
+            // Determine if the reference has expired (more than 5 hours)
+            $isExpired = $hoursDifference > 5;
+        @endphp
+        <tr>
+            <td>{{ $reference->id }}</td>
+            <td>{{ $reference->memberNumber }}</td>
+            <td>{{ $reference->phoneNumber }}</td>
+            <td>{{ $reference->reason }}</td>
+            <td>
+                {{ $reference->date }}
+            </td>
+            <td>{{ $reference->referenceNumber }}</td>
+            <td>
+                @if ($isExpired)
+                    <span class="text-danger">&#9733;</span>
+                @endif
+            </td>
+            <td>
+                <button type="button" class="btn btn-primary res-btn" id="resbtn" data-toggle="modal" data-target="#respondModal" data-reference-id="{{ $reference->id }}">Respond</button>
+            </td>
+        </tr>
+    @endforeach
+</tbody>
 
 
-                                        </td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
                             </table>
                         </div>
                     </div>
@@ -101,18 +116,23 @@
                                     <th>Amount</th>
                                     <th>Payment period</th>
                                     <th>Member Number</th>
-                                    
+                                    <th>Application Number</th>
+                                    <th>Action</th>
                                 </thead>
                                 <tbody>
-                                    @foreach($list as $row)
-                                    <tr>
-                                        <td>{{ $row->id }}</td>
-                                        <td>{{ $row->amount }}</td>
-                                        <td>{{ $row->paymentPeriod }}</td>
-                                        <td>{{ $row->memberNumber }}</td>
-                                    </tr>
-                                    @endforeach
-                                </tbody>
+    @foreach($list as $row)
+    <tr>
+        <td>{{ $row->id }}</td>
+        <td>{{ $row->amount }}</td>
+        <td>{{ $row->paymentPeriod }}</td>
+        <td>{{ $row->memberNumber }}</td>
+        <td>{{ $row->applicationNumber }}</td>
+        <td>
+            <button type="button" class="btn btn-primary grant-btn" data-reference-id="{{ $row->applicationNumber }}">Grant</button>
+        </td>
+    </tr>
+    @endforeach
+</tbody>
                             </table>
                         </div>
                     </div>
@@ -131,6 +151,33 @@
     });
 });
 
+</script>
+
+<script>
+    $(document).ready(function() {
+        $('.grant-btn').click(function() {
+            var applicationNumber = $(this).data('reference-id');
+            alert("Button clicked")
+            // Send an AJAX request to update the loan status
+            $.ajax({
+                type: 'POST',
+                url: '/approve-loan/' + applicationNumber,
+                data: {
+                    _token: '{{ csrf_token() }}'
+                },
+                success: function(response) {
+                    // Handle the success response if needed
+                    console.log(response);
+                    // Optionally, you can display a success message to the user
+                },
+                error: function(error) {
+                    // Handle the error response if needed
+                    console.log(error);
+                    // Optionally, you can display an error message to the user
+                }
+            });
+        });
+    });
 </script>
 
 

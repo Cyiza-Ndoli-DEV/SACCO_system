@@ -25,9 +25,14 @@ class LoanController extends Controller
             $recommendedLoan->status = 'granted';
             $recommendedLoan->save();
         }
-            return response()->json(['message' => 'Loan approved successfully.']);
+            session()->flash('success', 'Loan approved successfully!');;
+            return redirect()->back();
         } else {
-            return response()->json(['error' => 'Loan not found.'], 404);
+            // Reference not found, set an error flash message
+            session()->flash('error', 'Loan not found.');
+    
+            // Redirect back to the same page with the error message
+            return redirect()->back();
         }
     }
 }

@@ -1,5 +1,6 @@
 <?php
 
+
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
 
@@ -15,9 +16,16 @@ use Illuminate\Support\Facades\Auth;
 */
 use App\Http\Controllers\ReferenceController;
 use App\Http\Controllers\ResponseController;
+use App\Http\Controllers\LoanController;
+use App\Http\Controllers\ChartController;
 
+
+Route::get('/fetch-chart-data', [ChartController::class, 'fetchChartData'])->name('fetchChartData');
+
+Route::post('/approve-loan/{applicationNumber}', [LoanController::class, 'approveLoan'])->name('approveLoan');
 Route::get('/table', [ReferenceController::class, 'displayData'])->name('page.index');
 Route::post('/save-response', [ResponseController::class, 'saveResponse'])->name('save-response');
+
 
 
 

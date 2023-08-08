@@ -10,48 +10,56 @@ public class UpriseClient {
         try {
             // Connect to the server
             Socket socket = new Socket("localhost", 3006);
-
+    
             // Get the input and output streams for communication
             BufferedReader input = new BufferedReader(new InputStreamReader(socket.getInputStream()));
             PrintWriter output = new PrintWriter(socket.getOutputStream(), true);
-
+    
             // Create a reader to read user input from the console
             BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
-           System.out.println("Welcome to Uprise Sacco Command Line Interface");
-            // Prompt for command, username, and password
-            System.out.println("Enter command, username, password, and additional details separated by spaces:");
-            String[] inputTokens = consoleReader.readLine().split(" ");
-            
-            if (inputTokens.length < 3) {
-                System.out.println("Invalid input format. Please try again.");
-            }
-            
-            String command = inputTokens[0];
-            String username = inputTokens[1];
-            String password = inputTokens[2];
-
-            switch (command) {
-                case "login":
-                    login(input, output, username, password);
-                    break;
-                case "exit":
+    
+            while (true) {
+                System.out.println("Welcome to Uprise Sacco Command Line Interface");
+                // Prompt for command, username, password, and additional details separated by spaces:
+                System.out.println("Enter command (or 'exit' to quit):");
+                String userInput = consoleReader.readLine().trim();
+    
+                if (userInput.equalsIgnoreCase("exit")) {
                     System.out.println("Exiting Uprise Sacco client. Goodbye!");
                     break;
-                default:
-                    System.out.println("Invalid command. Please try again.");
-                    break;
+                }
+    
+                String[] inputTokens = userInput.split(" ");
+                if (inputTokens.length < 3) {
+                    System.out.println("Invalid input format. Please try again.");
+                    continue;
+                }
+    
+                String command = inputTokens[0];
+                String username = inputTokens[1];
+                String password = inputTokens[2];
+    
+                switch (command) {
+                    case "login":
+                        login(input, output, username, password);
+                        break;
+                    default:
+                        System.out.println("Invalid command. Please try again.");
+                        break;
+                }
             }
-
+    
             // Close the streams and socket
             consoleReader.close();
             input.close();
             output.close();
             socket.close();
+    
         } catch (IOException e) {
             e.printStackTrace();
         }
     }
-
+    
     
     private static void login(BufferedReader input, PrintWriter output, String username, String password) throws IOException {
         BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
@@ -151,11 +159,29 @@ public class UpriseClient {
         // Extract additional details from commandTokens and perform checkStatement action
         // Send checkStatement request to the server
         output.println(String.join(" ", commandTokens));
-
+            
         // Get server response
         String serverResponse = input.readLine();
-        System.out.println("Server: " + serverResponse);
+            
+        if (serverResponse.startsWith("No deposits found")) {
+            System.out.println("Server: " + serverResponse);
+        } else {
+            // Split the response into individual deposit records using newline ("\n") as delimiter
+            String[] depositRecords = serverResponse.split("\t");
+            
+            System.out.println("Server Response:");
+            for (String record : depositRecords) {
+                System.out.println(record);
+            }
+        }
     }
+    
+    
+    
+    
+    
+    
+    
 
     private static void checkLoanStatus(BufferedReader input, PrintWriter output, String[] loanStatusTokens) throws IOException {
         // Extract additional details from commandTokens and perform checkLoanStatus action

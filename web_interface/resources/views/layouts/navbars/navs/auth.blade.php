@@ -26,10 +26,14 @@
                     </a>
                 </li>
                 <li class="nav-item @if($activePage == 'table') active @endif">
-                    <a class="nav-link" href="{{route('page.index', 'add_members')}}">
+                    <a class="nav-link" href="{{url ('/admin/addmembers')}}">
                         <span class="no-icon">{{ __('Add sacco members') }}</span>
                     </a>
                 </li>
+                
+                
+                
+
                 <li class="nav-item @if($activePage == 'user') active @endif">
                     <a class="nav-link" href="{{route('profile.edit')}}">
                         <span class="no-icon">{{ __("Admin Profile") }}</span>
@@ -51,7 +55,46 @@
                             </a>
                         </form>
                     </li>
+                   
                 </ul>
+                <!-- Button to trigger the modal -->
+<button type="button" class="btn btn-primary" data-toggle="modal" data-target="#uploadModal">Upload CSV FILE</button>
+
+<!-- The Modal -->
+<div class="modal fade" id="uploadModal" tabindex="-1" role="dialog" aria-labelledby="uploadModalLabel" aria-hidden="true">
+    <div class="modal-dialog" role="document">
+        <div class="modal-content">
+            <form action="{{ route('upload') }}" method="POST" enctype="multipart/form-data">
+                @csrf
+                <div class="modal-header">
+                    <h5 class="modal-title" id="uploadModalLabel">Upload File</h5>
+                    <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+                        <span aria-hidden="true">&times;</span>
+                    </button>
+                </div>
+                <div class="modal-body">
+                    <input type="file" name="excel_file">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-dismiss="modal">Cancel</button>
+                    <button type="submit" class="btn btn-primary">Upload</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+        
             </div>
         </div>
 </nav>
+<script>
+    document.getElementById('uploadButton').addEventListener('click', function() {
+        var form = document.getElementById('uploadForm');
+        if (form.style.display === 'none') {
+            form.style.display = 'block';
+        } else {
+            form.style.display = 'none';
+        }
+    });
+</script>

@@ -1,11 +1,11 @@
 <?php
 
 namespace App\Models;
-
-use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 
 class RecommendedList extends Model
 {
-    protected $table = 'recommanded_loans'; 
+    public $timestamps = false;
+    protected $table = 'recommended_loans'; 
+    protected $fillable = ['status'];
 }
