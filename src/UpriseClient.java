@@ -19,9 +19,11 @@ public class UpriseClient {
             BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
     
             while (true) {
-                System.out.println("Welcome to Uprise Sacco Command Line Interface");
+                System.out.println("******* WELCOME TO UPRISE_SACCO COMMAND LINE INTERFACE *******");
+                System.out.println("                      ");
                 // Prompt for command, username, password, and additional details separated by spaces:
-                System.out.println("Enter command (or 'exit' to quit):");
+                System.out.println("login command command username password)");
+                System.out.println("                      ");
                 String userInput = consoleReader.readLine().trim();
     
                 if (userInput.equalsIgnoreCase("exit")) {
@@ -70,14 +72,15 @@ public class UpriseClient {
 
             // Get server response
             String serverResponse = input.readLine();
-            System.out.println("Server: " + serverResponse);
+           // System.out.println("Server: " + serverResponse);
 
             // Check if login was successful
             if (serverResponse.equals("Login successful")) {
-                System.out.println("Login successful");
+                System.out.println("****** Login successful ******");
                 executeCommands(input, output);
             } else {
-                System.out.println("Invalid username or password. enter your member number and phone number .");
+                System.out.println("Oops!!!____Invalid username or password_____");
+                System.out.println("Enter your member number and phone number");
                 String [] refInputs = consoleReader.readLine().split(" ");
                 requestReference(input, output,refInputs);
             }
@@ -88,12 +91,17 @@ public class UpriseClient {
         boolean continueExecution = true;
     
         while (continueExecution) {
-            System.out.println("1. deposit (command receiptNumber  dateDeposited(year-month-day))");
-            System.out.println("2. checkLoanStatus (command applicationNumber)");
-            System.out.println("3. checkStatement (command dateFrom(year-month-day) dateTo(year-month-day)  ");
-            System.out.println("4. requestLoan(command amount paymentPeriod memberMumber )");
-    
-            System.out.println("Enter a command followed by its details:");
+            System.out.println("                      ");
+            System.out.println("----------------------------USE THE FOLLOWING COMMANDS TO TRANSACT-------------------------");
+            System.out.println("                      ");
+            System.out.println("1. deposit |---------------command amount_deposited receiptNumber  dateDeposited(year-month-day)_----|");
+            System.out.println("2. checkLoanStatus |-------command applicationNumber-------------------------------------------------|");
+            System.out.println("3. checkStatement |--------command dateFrom(year-month-day) dateTo(year-month-day--------------------|");
+            System.out.println("4. requestLoan |-----------command amount paymentPeriod memberMumber---------------------------------|");
+            System.out.println("5. exit |------------------Enter the exit command to quit and to log out-----------------------------|");
+            System.out.println("        ");
+            System.out.println("Enter a command followed by its corresponding details separated by spaces:");
+            System.out.println("           ");
             BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
             String[] inputTokens = consoleReader.readLine().split(" ");
             String commandName = inputTokens[0];
@@ -131,7 +139,8 @@ public class UpriseClient {
     
         // Get server response
         String serverResponse = input.readLine();
-        System.out.println("Server: " + serverResponse);
+        System.out.println("                      ");
+        System.out.println("SERVER: " + serverResponse);
     }
 
      private static void requestReference(BufferedReader input, PrintWriter output, String[] refInputs) throws IOException {
@@ -141,6 +150,7 @@ public class UpriseClient {
     
         // Get server response
         String serverResponse = input.readLine();
+        System.out.println("                      ");
         System.out.println("Server: " + serverResponse);
     }
     
@@ -151,7 +161,8 @@ public class UpriseClient {
     
         // Get server response
         String serverResponse = input.readLine();
-        System.out.println("Server: " + serverResponse);
+        System.out.println("                      ");
+        System.out.println("Server: "+ serverResponse);
     }
     
 
@@ -164,11 +175,12 @@ public class UpriseClient {
         String serverResponse = input.readLine();
             
         if (serverResponse.startsWith("No deposits found")) {
-            System.out.println("Server: " + serverResponse);
+            System.out.println("                      ");
+            System.out.println("Server: "+ serverResponse);
         } else {
             // Split the response into individual deposit records using newline ("\n") as delimiter
             String[] depositRecords = serverResponse.split("\t");
-            
+            System.out.println("                      ");
             System.out.println("Server Response:");
             for (String record : depositRecords) {
                 System.out.println(record);
@@ -197,14 +209,14 @@ public class UpriseClient {
         if (serverResponse.equals("approved")) {
             acceptOrRejectLoan(input, output);
         } else {
-            System.out.println("Your loan request is :" + serverResponse);
+            System.out.println("Your Loan request status :" + serverResponse);
             // Handle other scenarios based on the server response if needed.
         }
     }
 
     private static void acceptOrRejectLoan( BufferedReader input, PrintWriter output) throws IOException{
          BufferedReader consoleReader = new BufferedReader(new InputStreamReader(System.in));
-        System.out.println("Your loan request has been approved. Please enter the next command:");
+        System.out.println("Your loan request has been approved. Please enter any other command:");
         String command = consoleReader.readLine();
         output.println(command);
         
